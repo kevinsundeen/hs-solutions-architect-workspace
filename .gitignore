@@ -3,6 +3,10 @@
 .env.*
 !.env.example
 
+# Transcript ingestion scratch space
+/_inbox/
+/.fathom-*
+
 # Secrets and credentials
 *.pem
 *.key
@@ -14,6 +18,7 @@ credentials*.json
 **/exports/**
 **/transcripts/*.txt
 **/transcripts/*.vtt
+**/_inbox/**
 **/*.csv
 **/*.xlsx
 **/*.xls

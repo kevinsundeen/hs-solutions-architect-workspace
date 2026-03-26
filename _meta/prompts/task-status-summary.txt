@@ -1,0 +1,2 @@
+In one short sentence, state: current state of this task, what (if anything) is blocking, and what's next. No preamble.
+

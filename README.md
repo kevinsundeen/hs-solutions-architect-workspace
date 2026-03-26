@@ -1,29 +1,47 @@
-# S2 Client Operations Template
+# HS Solutions Architect Workspace
 
-A clean, reusable workspace template for client delivery operations.
+A public-safe template for HubSpot client delivery work: consistent folders, transcript ingestion, and context updates.
 
-## Purpose
+## Who this is for
+- HubSpot solutions architects
+- Delivery/implementation leads who run meetings, capture transcripts, and keep `context.md` current
+- Teams who want “transcript → index → client context” to be repeatable
 
-This repository is the public-safe template version of an internal S2 workspace.
-It includes folder conventions, starter documents, and light automation scripts
-without any client data, transcripts, exports, or sensitive content.
+## Why it’s useful
+- You keep every client’s story in one place (`context.md` + `transcripts/` + `documents/deliverables/`), so ramp-up is fast.
+- You can automatically fetch and standardize meeting transcripts (Fathom fetch or webhook).
+- You can refresh the client’s transcript index and “what’s going on” context with one script.
+- If you enable LLM keys, you can generate a lightweight `context-ai.md` summary from the most recent transcripts.
+
+## What you get
+- `TEMPLATE_CLIENT/` a starter client folder scaffold
+- `scripts/new-client.sh` to create a new client folder from the scaffold
+- `_meta/scripts/` reusable automation for:
+  - `fathom-fetch-inbox.py` (end-of-day transcript fetch into `_inbox/`)
+  - `fathom-webhook-inbox.py` (webhook listener that writes transcripts into `_inbox/`)
+  - `update-context.py` (updates `transcripts/transcript-index.md` and `context.md`)
+  - `enrich-context.py` (LLM-generated `context-ai.md`, if keys are configured)
+  - `auto-rename-transcripts.py` (optional naming + context refresh)
 
 ## Quick Start
+1. Create a client workspace folder:
+   - `./scripts/new-client.sh "Client Name"`
+2. Configure optional keys:
+   - Copy `.env.example` to `.env` (recommended) and fill values you want to enable.
+3. Add artifacts into the client folder:
+   - Transcripts into `transcripts/` (or `_inbox/` first, then move)
+   - Deliverables into `documents/deliverables/draft/` or `documents/deliverables/final/`
+4. Refresh context:
+   - `python _meta/scripts/update-context.py "Client Name"`
+5. Optional AI enrichment:
+   - `python _meta/scripts/enrich-context.py "Client Name"`
 
-1. Clone this repository.
-2. Run `./scripts/new-client.sh "Client Name"` to create a new client folder.
-3. Fill in `context.md` and `context-ai.md`.
-4. Add transcripts and deliverables in your private project repo only.
-
-## Layout
-
-- `TEMPLATE_CLIENT/` reusable client folder scaffold
-- `docs/` process and policy documents
-- `scripts/` helper scripts
+## Recommended Transcript Workflow
+- Run `./_meta/scripts/fathom-fetch.sh` (from repo root) to populate `_inbox/`.
+- Move the transcript `.txt` files from `_inbox/` into the matching client’s `transcripts/`.
+- (Optional) run `python _meta/scripts/auto-rename-transcripts.py "Client Name"` to normalize naming.
+- Run `python _meta/scripts/update-context.py "Client Name"` so `context.md` stays current.
 
 ## Data Safety Rules
-
-- Never commit real client transcripts.
-- Never commit CRM exports (`.csv`, `.xlsx`, `.json` exports).
-- Never commit secrets or tokens.
-- Use this repo as a template, then do active work in a private repo.
+- This is a template: keep real client transcripts/exports in your private repo.
+- Never commit secrets/tokens; use `.env` locally and keep it out of git.

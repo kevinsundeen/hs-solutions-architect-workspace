@@ -1,0 +1,2 @@
+In exactly one short sentence, give the agenda or main focus for this client call. No preamble. Example: "Weekly touchbase; lifecycle cleanup and reporting scope."
+

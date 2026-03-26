@@ -1,0 +1,8 @@
+Based on the context and recent transcripts, output exactly three sections in markdown:
+
+## Current status (3-5 bullets)
+## Next steps (3-5 bullets)
+## Key themes / open questions (last 30 days) (2-4 bullets)
+
+No other commentary. Use markdown headers and bullet lists.
+

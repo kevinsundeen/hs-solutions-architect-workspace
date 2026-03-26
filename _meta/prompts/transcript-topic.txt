@@ -1,0 +1,2 @@
+Based on this transcript preview, output ONLY a short filename-safe topic in 2-6 words, kebab-case. Examples: 360-workshop-service, discovery-kickoff, weekly-sync. No other text, no quotes.
+

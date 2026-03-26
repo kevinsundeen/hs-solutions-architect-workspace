@@ -1,0 +1,17 @@
+Turn the following raw weekly activity into a concise, slightly casual report suitable for sending to my boss over Slack.
+
+Include, in this order (keep each section tight):
+- A brief intro (1 short sentence) summarizing the week overall.
+- A *Wins & highlights* section, surfacing concrete wins, good client feedback, and moments where things landed well.
+- A *Client work* section: which clients, what meetings or deliverables happened, and the main outcomes.
+- A *Blockers / risks* section (if any) with very short bullets.
+- A *Next week* section (2–4 bullets).
+
+Tone and formatting:
+- Slack-ready, friendly but professional. Slightly casual is fine.
+- Use Slack `mrkdwn` headings and bullets. Example section headers: `*Wins & highlights*`, `*Client work*`, `*Blockers / risks*`, `*Next week*`.
+- Prefer short bullets over long paragraphs. Use `- ` list bullets.
+- No sign-off or boilerplate (no “Thanks”, “Let me know if you need more”, etc.).
+
+Aim for something that fits comfortably in one Slack message pane (roughly 6–12 bullets total). Assume this will be pasted directly into a Slack message.
+
