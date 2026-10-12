@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# s2 — workspace command layer. Usage: s2 <command> [args]. Run `s2 help`.
+set -e
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+load_env() {
+  if [[ -f "$ROOT_DIR/.env" ]]; then set -a; source "$ROOT_DIR/.env" 2>/dev/null || true; set +a; fi
+}
+
+clients() {
+  for d in "$ROOT_DIR"/*/; do
+    c="${d%/}"; c="${c##*/}"
+    [[ "$c" == _* || "$c" == Archive || "$c" == Templates || "$c" == examples || "$c" == bin ]] && continue
+    [[ -f "$ROOT_DIR/$c/context.md" ]] && echo "$c"
+  done
+}
+
+cd "$ROOT_DIR"
+SUB="${1:-help}"; shift 1 2>/dev/null || true
+
+case "$SUB" in
+  help|-h|--help)
+    cat <<'HELP'
+s2 <command>
+  setup [--overlay PATH]        first-run setup (safe to re-run)
+  new client <Name>             create a client folder from the template
+  fetch [args]                  pull Fathom transcripts into _inbox/
+  sync [--enrich]               rename + index transcripts, refresh context.md for every client
+  wrap-up [--commit]            fetch + sync (+ commit and push with --commit)
+  status | health               per-client summary | folder sanity check
+  context <client|all>          full context refresh (AI summary if a key is set)
+  enrich <client>               AI summary only (context-ai.md)
+  context-from-chat <client> <file|->
+  find <client> "query"         search a client's transcripts
+  morning                       morning briefing (_meta/today.md)
+  gtm | gtm-workspace | marketo <export.json>   token-safe summaries
+  playbook <list|run|sync|new>  scheduled jobs (_meta/playbooks/*.toml)
+  drive <register|check|list|mark-synced|open>
+  test                          run the script test suite
+Overlay commands live in _meta/scripts/cmd/<name>.sh and run as `s2 <name>`.
+HELP
+    ;;
+  setup) python3 "$SCRIPT_DIR/setup.py" "$@" ;;
+  new)
+    if [[ "$1" != "client" || -z "$2" ]]; then echo "Usage: s2 new client <Name>"; exit 1; fi
+    name="$2"
+    mkdir -p "$ROOT_DIR/$name"/{transcripts,work,exports} \
+             "$ROOT_DIR/$name"/documents/{MSA,SOW,client-provided,deliverables/draft,deliverables/final}
+    template="$ROOT_DIR/_meta/system/templates/client-context-template.md"
+    if [[ -f "$ROOT_DIR/$name/context.md" ]]; then
+      echo "Kept existing context.md: $name/context.md"
+    else
+      sed "s/\[Client Name\]/$name/g; s/\[Name\]/$name/g; s/\[Date\]/$(date +%Y-%m-%d)/g" "$template" > "$ROOT_DIR/$name/context.md"
+    fi
+    echo "Created client folder: $name"
+    ;;
+  fetch) load_env; "$SCRIPT_DIR/fathom-fetch.sh" "$@" ;;
+  sync)
+    "$SCRIPT_DIR/process-all-clients.sh"
+    if [[ "$1" == "--enrich" ]]; then load_env; for c in $(clients); do python3 "$SCRIPT_DIR/enrich-context.py" "$c" || true; done; fi
+    ;;
+  wrap-up|wrapup)
+    load_env
+    do_commit=""; args=()
+    for a in "$@"; do [[ "$a" == "--commit" ]] && do_commit=1 || args+=("$a"); done
+    "$SCRIPT_DIR/fathom-fetch.sh" "${args[@]}"
+    "$SCRIPT_DIR/process-all-clients.sh"
+    if [[ -n "$do_commit" ]]; then
+      git add _inbox '*/context.md' '*/transcripts/' 2>/dev/null || true
+      git commit -m "Wrap up: fetch transcripts, update context" 2>/dev/null || true
+      git push 2>/dev/null || true
+    fi
+    ;;
+  status|brief)
+    for c in $(clients); do
+      tc="$(find "$ROOT_DIR/$c/transcripts" -maxdepth 1 -name '*.txt' 2>/dev/null | wc -l | tr -d ' ')"
+      echo "$c — transcripts: $tc"
+    done
+    ;;
+  health|check)
+    for c in $(clients); do
+      [[ -d "$ROOT_DIR/$c/transcripts" && -d "$ROOT_DIR/$c/documents" ]] || echo "  $c: missing transcripts/ or documents/"
+    done
+    echo "health check done"
+    ;;
+  context)
+    [[ -z "$1" ]] && { echo "Usage: s2 context <client|all>"; exit 1; }
+    load_env
+    if [[ "$1" == all ]]; then for c in $(clients); do python3 "$SCRIPT_DIR/context-full.py" "$c" || true; done
+    else python3 "$SCRIPT_DIR/context-full.py" "$1"; fi
+    ;;
+  enrich) [[ -z "$1" ]] && { echo "Usage: s2 enrich <client>"; exit 1; }; load_env; python3 "$SCRIPT_DIR/enrich-context.py" "$1" ;;
+  context-from-chat) load_env; python3 "$SCRIPT_DIR/context-from-chat.py" "$@" ;;
+  find) load_env; python3 "$SCRIPT_DIR/transcript-find.py" "$@" ;;
+  morning|good-morning) load_env; python3 "$SCRIPT_DIR/morning-briefing.py" "$@" ;;
+  gtm|gtm-summary) python3 "$SCRIPT_DIR/gtm-tag-summary.py" "$@" ;;
+  gtm-workspace|gtm-ws) python3 "$SCRIPT_DIR/gtm-workspace-summary.py" "$@" ;;
+  marketo) python3 "$SCRIPT_DIR/marketo-campaign-summary.py" "$@" ;;
+  playbook|playbooks) python3 "$SCRIPT_DIR/playbook.py" "$@" ;;
+  drive|drive-link) python3 "$SCRIPT_DIR/drive-link.py" "$@" ;;
+  test) cd "$SCRIPT_DIR" && python3 -m unittest discover -s tests -t . ;;
+  *)
+    if [[ -x "$SCRIPT_DIR/cmd/$SUB.sh" ]]; then load_env; exec "$SCRIPT_DIR/cmd/$SUB.sh" "$@"; fi
+    echo "Unknown command: $SUB (run: s2 help)" >&2
+    exit 1
+    ;;
+esac

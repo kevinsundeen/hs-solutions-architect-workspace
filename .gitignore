@@ -1,29 +1,41 @@
-.DS_Store
+# Env and secrets — never commit
 .env
 .env.*
 !.env.example
+env
+*.env
+.env.local
+.env.*.local
 
-# Transcript ingestion scratch space
-/_inbox/
-/.fathom-*
+# OS
+.DS_Store
+Thumbs.db
 
-# Secrets and credentials
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.eggs/
+
+# IDE / editor
+.idea/
+*.swp
+*.swo
+
+# Claude Code — local agent worktrees (nested checkouts; do not commit)
+**/.claude/worktrees/
+**/.claude/settings.local.json
+
 *.pem
 *.key
-*token*
-*secret*
 credentials*.json
 
-# Data exports and client artifacts
-**/exports/**
-**/transcripts/*.txt
-**/transcripts/*.vtt
-**/_inbox/**
-**/*.csv
-**/*.xlsx
-**/*.xls
-
-# Python / Node common
-__pycache__/
-*.pyc
-node_modules/
+.mcp.json
+**/documents/client-provided/
+_inbox/*
+!_inbox/.gitkeep
+_meta/today.md
+_meta/queue/
+/Demo/

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "fathom": { "type": "http", "url": "https://api.fathom.ai/mcp" },
+    "google-docs": {
+      "type": "stdio",
+      "command": "google-docs-mcp",
+      "args": [],
+      "env": { "GOOGLE_CLIENT_ID": "${GOOGLE_CLIENT_ID}", "GOOGLE_CLIENT_SECRET": "${GOOGLE_CLIENT_SECRET}" }
+    }
+  }
+}
