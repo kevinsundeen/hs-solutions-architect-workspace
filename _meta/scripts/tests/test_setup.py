@@ -46,6 +46,53 @@ class EnvTests(unittest.TestCase):
         self.assertIn("B_KEY=", text)
 
 
+class EnvInterruptTests(unittest.TestCase):
+    def test_eof_keeps_typed_answers_and_stops_prompting(self):
+        d = tmp()
+        (d / ".env.example").write_text("A_KEY=\nB_KEY=\nC_KEY=\n")
+        answers = iter(["aaa"])
+        asked = []
+
+        def ask(p):
+            asked.append(p)
+            val = next(answers, None)
+            if val is None:
+                raise EOFError
+            return val
+        filled = su.write_env(d / ".env.example", d / ".env", ask=ask)
+        self.assertEqual(filled, ["A_KEY"])
+        self.assertEqual((d / ".env").read_text(), "A_KEY=aaa\nB_KEY=\nC_KEY=\n")
+        self.assertEqual(len(asked), 2)  # stopped after EOF, did not ask C_KEY
+
+    def test_keyboard_interrupt_skips_key_and_continues(self):
+        d = tmp()
+        (d / ".env.example").write_text("A_KEY=\nB_KEY=\n")
+
+        def ask(p):
+            if p.startswith("A_KEY"):
+                raise KeyboardInterrupt
+            return "bbb"
+        filled = su.write_env(d / ".env.example", d / ".env", ask=ask)
+        self.assertEqual(filled, ["B_KEY"])
+        self.assertEqual((d / ".env").read_text(), "A_KEY=\nB_KEY=bbb\n")
+
+
+class OverlayArgTests(unittest.TestCase):
+    def test_missing_path_raises(self):
+        with self.assertRaises(ValueError):
+            su.overlay_arg(["--overlay"])
+
+    def test_flag_as_path_raises(self):
+        with self.assertRaises(ValueError):
+            su.overlay_arg(["--overlay", "--no-smoke"])
+
+    def test_returns_path(self):
+        self.assertEqual(su.overlay_arg(["--overlay", "../ov"]), Path("../ov"))
+
+    def test_none_when_absent(self):
+        self.assertIsNone(su.overlay_arg([]))
+
+
 class OverlayTests(unittest.TestCase):
     def setUp(self):
         self.root, self.ov = tmp(), tmp()

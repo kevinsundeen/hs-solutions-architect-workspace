@@ -5,7 +5,6 @@ Usage: s2 setup [--overlay PATH] [--no-smoke] [--keep-demo]
 """
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
 import sys
@@ -48,7 +47,12 @@ def write_env(example: Path, env: Path, ask=input) -> list[str]:
     for key in _parse(example.read_text(encoding="utf-8")):
         if current.get(key):
             continue
-        val = ask(f"{key} (Enter to skip): ").strip()
+        try:
+            val = ask(f"{key} (Enter to skip): ").strip()
+        except KeyboardInterrupt:
+            val = ""
+        except EOFError:
+            break  # no more input: keep what was answered, skip the rest
         if key not in current:
             lines.append(f"{key}={val}")
         elif val:
@@ -138,8 +142,24 @@ def smoke_test(root: Path, run=subprocess.run, keep: bool = False) -> bool:
     return ok
 
 
+USAGE = "Usage: s2 setup [--overlay PATH] [--no-smoke] [--keep-demo]"
+
+
+def overlay_arg(argv: list[str]) -> Path | None:
+    if "--overlay" not in argv:
+        return None
+    i = argv.index("--overlay")
+    if i + 1 >= len(argv) or argv[i + 1].startswith("--"):
+        raise ValueError("--overlay needs a PATH")
+    return Path(argv[i + 1]).expanduser()
+
+
 def main(argv: list[str]) -> int:
-    overlay = Path(argv[argv.index("--overlay") + 1]).expanduser() if "--overlay" in argv else None
+    try:
+        overlay = overlay_arg(argv)
+    except ValueError:
+        print(USAGE)
+        return 2
     probs = check_prereqs()
     if probs:
         print("Fix these first, then re-run s2 setup:")
