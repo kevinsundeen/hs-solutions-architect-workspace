@@ -1,41 +1,30 @@
-# Env and secrets — never commit
+# Allowlist: only template files are tracked. Client folders stay local.
+# To version client work, make your own PRIVATE repo and edit this file there.
+/*
+!/.gitignore
+!/README.md
+!/CLAUDE.md
+!/LICENSE
+!/.env.example
+!/.mcp.json.example
+!/s2.code-workspace
+!/bin/
+!/_meta/
+!/.claude/
+!/.vscode/
+!/examples/
+
+# Re-ignores inside allowlisted folders
 .env
 .env.*
 !.env.example
-env
-*.env
-.env.local
-.env.*.local
-
-# OS
+.mcp.json
+*token*
+*secret*
 .DS_Store
-Thumbs.db
-
-# Python
 __pycache__/
 *.py[cod]
-.venv/
-venv/
-*.egg-info/
-.eggs/
-
-# IDE / editor
-.idea/
-*.swp
-*.swo
-
-# Claude Code — local agent worktrees (nested checkouts; do not commit)
 **/.claude/worktrees/
 **/.claude/settings.local.json
-
-*.pem
-*.key
-credentials*.json
-
-.mcp.json
-**/documents/client-provided/
-_inbox/*
-!_inbox/.gitkeep
 _meta/today.md
 _meta/queue/
-/Demo/

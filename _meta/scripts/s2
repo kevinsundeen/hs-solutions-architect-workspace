@@ -45,20 +45,29 @@ HELP
   new)
     if [[ "$1" != "client" || -z "$2" ]]; then echo "Usage: s2 new client <Name>"; exit 1; fi
     name="$2"
+    if [[ "$name" == */* || "$name" == .* ]]; then echo "Invalid client name: no '/' and no leading '.'" >&2; exit 1; fi
     mkdir -p "$ROOT_DIR/$name"/{transcripts,work,exports} \
              "$ROOT_DIR/$name"/documents/{MSA,SOW,client-provided,deliverables/draft,deliverables/final}
     template="$ROOT_DIR/_meta/system/templates/client-context-template.md"
     if [[ -f "$ROOT_DIR/$name/context.md" ]]; then
       echo "Kept existing context.md: $name/context.md"
     else
-      sed "s/\[Client Name\]/$name/g; s/\[Name\]/$name/g; s/\[Date\]/$(date +%Y-%m-%d)/g" "$template" > "$ROOT_DIR/$name/context.md"
+      tmp="$(mktemp)"
+      today="$(date +%Y-%m-%d)"
+      if [[ -f "$template" ]]; then
+        esc="$(printf '%s' "$name" | sed -e 's/[\\&|]/\\&/g')"
+        sed "s|\[Client Name\]|$esc|g; s|\[Name\]|$esc|g; s|\[Date\]|$today|g" "$template" > "$tmp"
+      else
+        printf '# %s - Context\n\n*Last Updated: %s*\n' "$name" "$today" > "$tmp"
+      fi
+      mv "$tmp" "$ROOT_DIR/$name/context.md"
     fi
     echo "Created client folder: $name"
     ;;
   fetch) load_env; "$SCRIPT_DIR/fathom-fetch.sh" "$@" ;;
   sync)
     "$SCRIPT_DIR/process-all-clients.sh"
-    if [[ "$1" == "--enrich" ]]; then load_env; for c in $(clients); do python3 "$SCRIPT_DIR/enrich-context.py" "$c" || true; done; fi
+    if [[ "$1" == "--enrich" ]]; then load_env; while IFS= read -r c; do python3 "$SCRIPT_DIR/enrich-context.py" "$c" || true; done < <(clients); fi
     ;;
   wrap-up|wrapup)
     load_env
@@ -73,21 +82,21 @@ HELP
     fi
     ;;
   status|brief)
-    for c in $(clients); do
+    while IFS= read -r c; do
       tc="$(find "$ROOT_DIR/$c/transcripts" -maxdepth 1 -name '*.txt' 2>/dev/null | wc -l | tr -d ' ')"
       echo "$c — transcripts: $tc"
-    done
+    done < <(clients)
     ;;
   health|check)
-    for c in $(clients); do
+    while IFS= read -r c; do
       [[ -d "$ROOT_DIR/$c/transcripts" && -d "$ROOT_DIR/$c/documents" ]] || echo "  $c: missing transcripts/ or documents/"
-    done
+    done < <(clients)
     echo "health check done"
     ;;
   context)
     [[ -z "$1" ]] && { echo "Usage: s2 context <client|all>"; exit 1; }
     load_env
-    if [[ "$1" == all ]]; then for c in $(clients); do python3 "$SCRIPT_DIR/context-full.py" "$c" || true; done
+    if [[ "$1" == all ]]; then while IFS= read -r c; do python3 "$SCRIPT_DIR/context-full.py" "$c" || true; done < <(clients)
     else python3 "$SCRIPT_DIR/context-full.py" "$1"; fi
     ;;
   enrich) [[ -z "$1" ]] && { echo "Usage: s2 enrich <client>"; exit 1; }; load_env; python3 "$SCRIPT_DIR/enrich-context.py" "$1" ;;
@@ -101,7 +110,7 @@ HELP
   drive|drive-link) python3 "$SCRIPT_DIR/drive-link.py" "$@" ;;
   test) cd "$SCRIPT_DIR" && python3 -m unittest discover -s tests -t . ;;
   *)
-    if [[ -x "$SCRIPT_DIR/cmd/$SUB.sh" ]]; then load_env; exec "$SCRIPT_DIR/cmd/$SUB.sh" "$@"; fi
+    if [[ "$SUB" != */* && -x "$SCRIPT_DIR/cmd/$SUB.sh" ]]; then load_env; exec "$SCRIPT_DIR/cmd/$SUB.sh" "$@"; fi
     echo "Unknown command: $SUB (run: s2 help)" >&2
     exit 1
     ;;
