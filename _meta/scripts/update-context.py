@@ -21,7 +21,6 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional
 
-
 def parse_transcript_filename(filename: str) -> Optional[Dict[str, str]]:
     """
     Parse transcript filename to extract date, client, and topic.
@@ -37,7 +36,6 @@ def parse_transcript_filename(filename: str) -> Optional[Dict[str, str]]:
         }
     return None
 
-
 def extract_transcript_summary(filepath: Path) -> Optional[str]:
     """Extract summary from transcript file if it exists."""
     try:
@@ -50,7 +48,6 @@ def extract_transcript_summary(filepath: Path) -> Optional[str]:
     except Exception:
         pass
     return None
-
 
 def get_transcripts(transcripts_dir: Path) -> List[Dict[str, str]]:
     """Get all transcripts from transcripts directory."""
@@ -70,14 +67,13 @@ def get_transcripts(transcripts_dir: Path) -> List[Dict[str, str]]:
             # Fallback for non-standard names
             transcripts.append({
                 'date': datetime.fromtimestamp(file.stat().st_mtime).strftime('%Y-%m-%d'),
-                'client': 'unknown',  # Default; if your naming convention varies, keep this generic
+                'client': 'acme',  # Default, should be detected from folder
                 'topic': file.stem.replace('_', ' ').title(),
                 'filename': file.name,
                 'summary': None
             })
     
     return transcripts
-
 
 def get_deliverables(deliverables_dir: Path) -> Dict[str, List[Dict[str, str]]]:
     """Get all deliverables, separated by draft/final."""
@@ -89,7 +85,7 @@ def get_deliverables(deliverables_dir: Path) -> Dict[str, List[Dict[str, str]]]:
     for status, dir_path in [('final', final_dir), ('draft', draft_dir)]:
         if dir_path.exists():
             for file in sorted(dir_path.glob('*'), reverse=True):
-                if file.is_file() and not file.name.startswith('.') and not file.name.lower().startswith('readme'):
+                if file.is_file() and not file.name.startswith('.'):
                     mtime = datetime.fromtimestamp(file.stat().st_mtime)
                     deliverables[status].append({
                         'name': file.stem,
@@ -99,7 +95,6 @@ def get_deliverables(deliverables_dir: Path) -> Dict[str, List[Dict[str, str]]]:
                     })
     
     return deliverables
-
 
 def update_transcript_index(transcripts_dir: Path, transcripts: List[Dict[str, str]]):
     """Create or update transcript index file."""
@@ -115,7 +110,6 @@ def update_transcript_index(transcripts_dir: Path, transcripts: List[Dict[str, s
         content.append(f"| {t['date']} | {topic} | `{t['filename']}` |\n")
     
     index_path.write_text(''.join(content), encoding='utf-8')
-
 
 def update_context_file(context_path: Path, transcripts: List[Dict[str, str]], deliverables: Dict[str, List[Dict[str, str]]]):
     """Update context.md with latest transcripts and deliverables."""
@@ -177,7 +171,6 @@ def update_context_file(context_path: Path, transcripts: List[Dict[str, str]], d
     context_path.write_text(content, encoding='utf-8')
     print(f"✓ Updated {context_path}")
 
-
 def main():
     """Main function to update context for a client folder."""
     if len(sys.argv) > 1:
@@ -214,7 +207,5 @@ def main():
     
     print("Done!")
 
-
 if __name__ == '__main__':
     main()
-

@@ -18,10 +18,13 @@ class PrereqTests(unittest.TestCase):
         self.assertEqual(su.check_prereqs(which=lambda n: f"/bin/{n}", version=(3, 12)), [])
 
     def test_missing_tools_and_old_python(self):
-        probs = su.check_prereqs(which=lambda n: None if n == "gh" else "/x", version=(3, 9))
+        probs = su.check_prereqs(which=lambda n: None if n == "claude" else "/x", version=(3, 9))
         self.assertEqual(len(probs), 2)
         self.assertIn("brew install python@3.12", probs[0])
-        self.assertIn("brew install gh", probs[1])
+        self.assertIn("npm install -g @anthropic-ai/claude-code", probs[1])
+
+    def test_gh_is_optional(self):
+        self.assertEqual(su.check_prereqs(which=lambda n: None if n == "gh" else "/x", version=(3, 12)), [])
 
 
 class EnvTests(unittest.TestCase):

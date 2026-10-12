@@ -14,7 +14,9 @@ ROOT = Path(__file__).resolve().parents[2]
 SAMPLE_NAME = "2026-01-15_demo_alex-jordan_kickoff.txt"
 INSTALL = {
     "claude": "npm install -g @anthropic-ai/claude-code",
-    "gh": "brew install gh",
+}
+OPTIONAL = {
+    "gh": "brew install gh  (only needed if you open pull requests from the CLI)",
 }
 
 
@@ -160,6 +162,9 @@ def main(argv: list[str]) -> int:
     except ValueError:
         print(USAGE)
         return 2
+    for tool, cmd in OPTIONAL.items():
+        if not shutil.which(tool):
+            print(f"  ! {tool} not found (optional) → {cmd}")
     probs = check_prereqs()
     if probs:
         print("Fix these first, then re-run s2 setup:")

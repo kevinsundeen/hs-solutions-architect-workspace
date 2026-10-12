@@ -5,11 +5,17 @@ Writes to context-ai.md (or appends a section to context.md). Run: python enrich
 Requires OPENAI_API_KEY or ANTHROPIC_API_KEY in env.
 """
 
+import json
 import os
 import sys
 from pathlib import Path
 from datetime import datetime
 
+
+def _dialogue(text: str) -> str:
+    """Verbatim dialogue below the `## Transcript` marker; whole text if there is no marker."""
+    i = text.find("\n## Transcript")
+    return text[i + 1:] if i != -1 else text
 
 def _load_env(repo_root: Path) -> None:
     for name in (".env", "env"):
@@ -55,10 +61,27 @@ def main() -> None:
 
     # Gather: context.md + last 2-3 transcripts
     parts = [context_md.read_text(encoding="utf-8", errors="replace")[:8000]]
-    trans_dir = client_dir / "transcripts"
-    if trans_dir.is_dir():
-        for f in sorted(trans_dir.glob("*.txt"), key=lambda p: p.stat().st_mtime, reverse=True)[:3]:
-            parts.append(f"Transcript {f.name}:\n" + f.read_text(encoding="utf-8", errors="replace")[:5000])
+    idx_path = client_dir.parent / "_meta" / "transcript-index.jsonl"
+    transcript_files: list[Path] = []
+    if idx_path.is_file():
+        entries = []
+        for line in idx_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line:
+                try:
+                    e = json.loads(line)
+                    if e.get("client") == client:
+                        entries.append(e)
+                except json.JSONDecodeError:
+                    continue
+        entries.sort(key=lambda e: e["date"], reverse=True)
+        transcript_files = [client_dir.parent / e["path"] for e in entries[:3]]
+    else:
+        trans_dir = client_dir / "transcripts"
+        if trans_dir.is_dir():
+            transcript_files = sorted(trans_dir.glob("*.txt"), key=lambda p: p.stat().st_mtime, reverse=True)[:3]
+    for f in transcript_files:
+        parts.append(f"Transcript {f.name}:\n" + _dialogue(f.read_text(encoding="utf-8", errors="replace"))[:5000])
     # Optionally include deep research background if it exists
     research_bg = client_dir / "research-background.md"
     if research_bg.is_file():
@@ -66,12 +89,11 @@ def main() -> None:
     text = "\n\n".join(parts)
 
     from prompts_loader import get_prompt
-
     prompt = get_prompt("enrich-context")
     if not prompt:
         prompt = "Summarize context, recent transcripts, and external background (if present) into Current status, Next steps, and Key themes. Use markdown bullets."
 
-    result = llm_helper.summarize(text, prompt, max_tokens=600)
+    result = llm_helper.summarize(text, prompt, max_tokens=600, max_input_chars=len(text))
     if not result:
         print("No response from LLM")
         sys.exit(1)
@@ -86,4 +108,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

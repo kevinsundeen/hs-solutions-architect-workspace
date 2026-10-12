@@ -28,3 +28,6 @@ __pycache__/
 **/.claude/settings.local.json
 _meta/today.md
 _meta/queue/
+
+# vendor doc whose name matches *secret*
+!_meta/library/hubspot/hubspot-cca-documentation/04-secrets-and-properties.md

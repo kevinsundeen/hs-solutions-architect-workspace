@@ -10,13 +10,17 @@ Or run from client folder:
     python ../../_meta/scripts/auto-rename-transcripts.py .
 """
 
+import logging
 import os
 import re
 import sys
 import time
+import subprocess
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
+
+logger = logging.getLogger("s2.transcript_watch")
 
 
 def _load_env(repo_root: Path) -> None:
@@ -34,7 +38,6 @@ def _load_env(repo_root: Path) -> None:
             if key and key not in os.environ:
                 os.environ[key] = value
         return
-
 
 def extract_date_from_content(content: str, filename: str) -> str:
     """Extract date from transcript content."""
@@ -97,7 +100,6 @@ def extract_date_from_content(content: str, filename: str) -> str:
     # Fallback: use file modification date
     return datetime.now().strftime('%Y-%m-%d')
 
-
 def extract_topic_from_content(content: str) -> str:
     """Extract topic/keywords from transcript content."""
     content_lower = content.lower()[:2000]  # Check first 2000 chars
@@ -105,7 +107,7 @@ def extract_topic_from_content(content: str) -> str:
     # Common topic patterns
     topic_keywords = {
         'weekly-sync': ['weekly', 'sync', 'standup', 'status update'],
-        'cae-rep': ['cae', 'rep assignment', 'rep mapping', 'ccc'],
+        'rep-mapping': ['rep assignment', 'rep mapping'],
         'sdr-rep': ['sdr', 'sales development'],
         'discovery': ['discovery', 'requirements', 'needs assessment'],
         'implementation': ['implementation', 'build', 'development', 'deploy'],
@@ -130,7 +132,6 @@ def extract_topic_from_content(content: str) -> str:
     # Default fallback
     return 'meeting'
 
-
 def get_client_name_from_folder(folder_path: Path) -> str:
     """Extract client name from folder path."""
     # Client folder name should be the client name
@@ -138,7 +139,6 @@ def get_client_name_from_folder(folder_path: Path) -> str:
     # Remove common suffixes like "-New"
     folder_name = re.sub(r'-new$', '', folder_name, flags=re.IGNORECASE)
     return folder_name.lower()
-
 
 def is_generic_filename(filename: str, client_name: str) -> bool:
     """Heuristic: decide if a filename looks generic (safe to rename)."""
@@ -262,6 +262,60 @@ def rename_transcript(filepath: Path, client_name: str) -> Optional[Path]:
         return None
 
 
+def maybe_run_call_coach(transcript_path: Path) -> None:
+    """
+    Optional: run facilitation coach on newly filed client transcript.
+
+    Enabled when S2_CALL_COACH_ON_WATCH=1 (or true/yes).
+    Requires OPENAI_API_KEY or ANTHROPIC_API_KEY in env.
+    """
+    flag = os.environ.get("S2_CALL_COACH_ON_WATCH", "").strip().lower()
+    path_display = transcript_path.resolve()
+    logger.debug("Coach hook: evaluating %s", path_display)
+    logger.debug(
+        "S2_CALL_COACH_ON_WATCH=%r OPENAI_API_KEY=%s ANTHROPIC_API_KEY=%s",
+        os.environ.get("S2_CALL_COACH_ON_WATCH", ""),
+        "set" if os.environ.get("OPENAI_API_KEY") else "unset",
+        "set" if os.environ.get("ANTHROPIC_API_KEY") else "unset",
+    )
+    if flag not in ("1", "true", "yes", "y", "on"):
+        logger.debug(
+            "Coach skipped: S2_CALL_COACH_ON_WATCH not enabled "
+            "(set to 1/true/yes to run after new transcripts)"
+        )
+        return
+    if not (
+        os.environ.get("OPENAI_API_KEY")
+        or os.environ.get("ANTHROPIC_API_KEY")
+        or os.environ.get("S2_ANTHROPIC_API_KEY")
+    ):
+        msg = "Coach skipped: no OPENAI_API_KEY / ANTHROPIC_API_KEY / S2_ANTHROPIC_API_KEY set"
+        logger.warning("%s (file=%s)", msg, path_display)
+        print(f"  ({msg})")
+        return
+
+    script_dir = Path(__file__).resolve().parent
+    coach_script = script_dir / "fathom-call-coach.py"
+    if not coach_script.is_file():
+        msg = "Coach skipped: fathom-call-coach.py not found"
+        logger.error("%s at %s", msg, coach_script)
+        print(f"  ({msg})")
+        return
+
+    cmd = [sys.executable, str(coach_script), str(path_display)]
+    logger.info("Running call coach for %s", path_display)
+    logger.info("Command: %s", " ".join(cmd))
+    try:
+        # No capture_output — coach script output goes to the terminal
+        proc = subprocess.run(cmd, check=False)
+        logger.info("Coach subprocess finished rc=%s", proc.returncode)
+        if proc.returncode != 0:
+            logger.warning("Coach exited with non-zero status")
+    except Exception as e:
+        logger.exception("Coach failed: %s", e)
+        print(f"  (Coach failed: {e})")
+
+
 def watch_and_rename(client_folder: Path):
     """Watch transcripts folder and auto-rename new files."""
     transcripts_dir = client_folder / 'transcripts'
@@ -271,6 +325,12 @@ def watch_and_rename(client_folder: Path):
         return
     
     client_name = get_client_name_from_folder(client_folder)
+    logger.info(
+        "Watch started client_folder=%s transcripts_dir=%s client_name=%s",
+        client_folder.resolve(),
+        transcripts_dir.resolve(),
+        client_name,
+    )
     print(f"Watching {transcripts_dir} for new transcripts...")
     print(f"Client name: {client_name}")
     print("Drag transcript files here and they will be automatically renamed.")
@@ -279,6 +339,7 @@ def watch_and_rename(client_folder: Path):
     # Get initial set of files
     existing_files = set(transcripts_dir.glob('*.txt'))
     existing_files.update(transcripts_dir.glob('*.md'))
+    logger.debug("Initial transcript count: %s", len(existing_files))
     
     try:
         while True:
@@ -287,42 +348,65 @@ def watch_and_rename(client_folder: Path):
             current_files.update(transcripts_dir.glob('*.md'))
             
             new_files = current_files - existing_files
+            if new_files:
+                logger.debug(
+                    "Poll: %s total files, %s new this tick: %s",
+                    len(current_files),
+                    len(new_files),
+                    sorted(p.name for p in new_files),
+                )
 
             for new_file in new_files:
                 # Wait a moment for file to be fully written
                 time.sleep(0.5)
 
+                logger.info("New transcript file detected: %s", new_file.resolve())
+
                 # Check if file follows convention already
                 pattern = r'\d{4}-\d{2}-\d{2}_[^_]+_[^_]+\.(txt|md)$'
+                final_path: Optional[Path] = None
+
                 if re.match(pattern, new_file.name):
                     print(f"✓ {new_file.name} already follows convention")
-                    continue
-
-                # Only rename files that look "generic" rather than already-descriptive
-                if not is_generic_filename(new_file.name, client_name):
+                    logger.info(
+                        "Rename skipped: filename matches strict convention pattern"
+                    )
+                    final_path = new_file
+                elif not is_generic_filename(new_file.name, client_name):
                     print(f"• Skipping rename for {new_file.name} (already looks descriptive)")
-                    continue
-
-                renamed = rename_transcript(new_file, client_name)
-                if renamed:
-                    # Update context after renaming
-                    try:
-                        import subprocess
-                        script_path = Path(__file__).parent / 'update-context.py'
-                        subprocess.run(
-                            [sys.executable, str(script_path), str(client_folder)],
-                            check=False,
+                    logger.info(
+                        "Rename skipped: is_generic_filename=False (descriptive name)"
+                    )
+                    final_path = new_file
+                else:
+                    renamed = rename_transcript(new_file, client_name)
+                    if renamed:
+                        final_path = renamed
+                        try:
+                            script_path = Path(__file__).parent / 'update-context.py'
+                            subprocess.run([
+                                sys.executable, str(script_path), str(client_folder)
+                            ], check=False)
+                            print(f"✓ Updated context.md")
+                            logger.info("Ran update-context.py for %s", client_folder)
+                        except Exception as e:
+                            print(f"  (Context update failed: {e})")
+                            logger.warning("Context update failed: %s", e)
+                    else:
+                        logger.warning(
+                            "rename_transcript returned None for %s; not running coach",
+                            new_file.name,
                         )
-                        print(f"✓ Updated context.md")
-                    except Exception as e:
-                        print(f"  (Context update failed: {e})")
+
+                if final_path is not None:
+                    maybe_run_call_coach(final_path)
             
             existing_files = current_files
             time.sleep(1)  # Check every second
             
     except KeyboardInterrupt:
+        logger.info("Watch stopped (KeyboardInterrupt)")
         print("\n\nStopped watching.")
-
 
 def main():
     """Main function."""
@@ -339,9 +423,18 @@ def main():
     repo_root = client_folder.parent
     _load_env(repo_root)
 
-    watch_and_rename(client_folder)
+    log_level_name = (
+        os.environ.get("S2_WATCH_LOG_LEVEL", "INFO").strip().upper() or "INFO"
+    )
+    level = getattr(logging, log_level_name, logging.INFO)
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    logger.debug("Log level %s (override with S2_WATCH_LOG_LEVEL=DEBUG)", log_level_name)
 
+    watch_and_rename(client_folder)
 
 if __name__ == '__main__':
     main()
-
