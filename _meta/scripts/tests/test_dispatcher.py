@@ -48,6 +48,7 @@ class TempRootTests(unittest.TestCase):
         scripts.mkdir(parents=True)
         (scripts / "s2").write_text(S2.read_text())
         (scripts / "s2").chmod(0o755)
+        (scripts / "pyresolve.sh").write_text((S2.parent / "pyresolve.sh").read_text())
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -82,3 +83,42 @@ class TempRootTests(unittest.TestCase):
     def test_subcommand_with_slash_rejected(self):
         r = self.run_s2("../x")
         self.assertEqual(r.returncode, 1)
+
+
+class PythonResolveTests(unittest.TestCase):
+    RESOLVE = S2.parent / "pyresolve.sh"
+
+    def resolve(self, env_extra, path=None):
+        env = {k: v for k, v in os.environ.items() if k != "S2_PYTHON"}
+        env.update(env_extra)
+        if path is not None:
+            env["PATH"] = path
+        return subprocess.run(["/bin/bash", "-c", f'source "{self.RESOLVE}"; s2_python'],
+                              capture_output=True, text=True, env=env)
+
+    def fake_python(self, d, name, minor):
+        p = Path(d) / name
+        p.write_text(f'#!/bin/sh\n[ "$1" = "-c" ] && exit $(( {minor} >= 11 ? 0 : 1 ))\nexit 0\n')
+        p.chmod(0o755)
+        return p
+
+    def test_override_wins(self):
+        r = self.resolve({"S2_PYTHON": "/x/py"})
+        self.assertEqual(r.stdout.strip(), "/x/py")
+
+    def test_skips_old_python_and_picks_first_qualifying(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.fake_python(d, "python3.12", 12)
+            self.fake_python(d, "python3", 9)
+            r = self.resolve({}, path=f"{d}:/usr/bin:/bin")
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertTrue(r.stdout.strip().endswith("/python3.12"))
+
+    def test_fails_with_hint_when_none_qualifies(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.fake_python(d, "python3", 9)
+            r = self.resolve({}, path=d)
+            if Path("/opt/homebrew/bin/python3").exists() or Path("/usr/local/bin/python3").exists():
+                self.skipTest("a fixed-path python exists on this machine")
+            self.assertEqual(r.returncode, 1)
+            self.assertIn("Python 3.11+ required → brew install python@3.12", r.stderr)

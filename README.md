@@ -5,7 +5,19 @@ turn into a per-client index and `context.md`, so you can ramp back up on any cl
 Project agents and skills keep HubSpot builds grounded in what the client said and what the portal
 actually holds.
 
-## 10-minute setup
+## Start here
+
+1. Install VS Code from https://code.visualstudio.com.
+2. Open Terminal and paste this line. It installs what is missing, downloads the workspace, and runs setup:
+
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/kevinsundeen/hs-solutions-architect-workspace/main/install.sh | bash -s -- --overlay <owner>/<private-overlay-repo>
+   ```
+
+   The `--overlay` part is optional: it adds a team's private overlay repo, and the person who invites you sends the full line. Without an overlay, drop everything from `--` onward (keep `| bash`).
+3. When VS Code opens, read `ONBOARDING.md`.
+
+## Manual setup
 
 You need Python 3.11+, Git, the Claude Code CLI (`npm install -g @anthropic-ai/claude-code`), and
 VS Code with its `code` command on your PATH (or just open `s2.code-workspace` from VS Code).

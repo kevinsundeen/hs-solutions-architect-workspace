@@ -5,6 +5,9 @@
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOT_DIR="$( cd "$SCRIPT_DIR/../.." && pwd )"
 
+source "$SCRIPT_DIR/pyresolve.sh"
+PY="${S2_PYTHON:-$(s2_python)}" || exit 1
+
 cd "$ROOT_DIR"
 
 echo "Processing all client folders..."
@@ -22,10 +25,10 @@ for client in */; do
     echo "=== Processing $client ==="
     
     # Rename transcripts
-    python3 "$SCRIPT_DIR/rename-existing-transcripts.py" "$client" 2>&1 | tail -3
+    "$PY" "$SCRIPT_DIR/rename-existing-transcripts.py" "$client" 2>&1 | tail -3
     
     # Update context
-    python3 "$SCRIPT_DIR/update-context.py" "$client" 2>&1 | grep -E "(Updating|Found|Updated|Done)" || echo "✓ Updated $client"
+    "$PY" "$SCRIPT_DIR/update-context.py" "$client" 2>&1 | grep -E "(Updating|Found|Updated|Done)" || echo "✓ Updated $client"
     
     echo ""
 done
@@ -33,4 +36,4 @@ done
 echo "Done processing all clients!"
 
 # Rebuild workspace-wide transcript index
-python3 "$SCRIPT_DIR/build-transcript-index.py"
+"$PY" "$SCRIPT_DIR/build-transcript-index.py"

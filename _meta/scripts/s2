@@ -16,6 +16,11 @@ clients() {
   done
 }
 
+# shellcheck source=pyresolve.sh
+source "$SCRIPT_DIR/pyresolve.sh"
+# Resolve a Python >= 3.11 lazily, so commands that need no Python still run without one.
+need_py() { if [[ -z "${S2_PYTHON:-}" ]]; then S2_PYTHON="$(s2_python)" || exit 1; export S2_PYTHON; fi; PY="$S2_PYTHON"; }
+
 cd "$ROOT_DIR"
 SUB="${1:-help}"; shift 1 2>/dev/null || true
 
@@ -41,7 +46,7 @@ s2 <command>
 Overlay commands live in _meta/scripts/cmd/<name>.sh and run as `s2 <name>`.
 HELP
     ;;
-  setup) python3 "$SCRIPT_DIR/setup.py" "$@" ;;
+  setup) need_py; "$PY" "$SCRIPT_DIR/setup.py" "$@" ;;
   new)
     if [[ "$1" != "client" || -z "$2" ]]; then echo "Usage: s2 new client <Name>"; exit 1; fi
     name="$2"
@@ -64,13 +69,14 @@ HELP
     fi
     echo "Created client folder: $name"
     ;;
-  fetch) load_env; "$SCRIPT_DIR/fathom-fetch.sh" "$@" ;;
+  fetch) load_env; need_py; "$SCRIPT_DIR/fathom-fetch.sh" "$@" ;;
   sync)
+    need_py
     "$SCRIPT_DIR/process-all-clients.sh"
-    if [[ "$1" == "--enrich" ]]; then load_env; while IFS= read -r c; do python3 "$SCRIPT_DIR/enrich-context.py" "$c" || true; done < <(clients); fi
+    if [[ "$1" == "--enrich" ]]; then load_env; while IFS= read -r c; do "$PY" "$SCRIPT_DIR/enrich-context.py" "$c" || true; done < <(clients); fi
     ;;
   wrap-up|wrapup)
-    load_env
+    need_py; load_env
     do_commit=""; args=()
     for a in "$@"; do [[ "$a" == "--commit" ]] && do_commit=1 || args+=("$a"); done
     "$SCRIPT_DIR/fathom-fetch.sh" "${args[@]}"
@@ -95,20 +101,20 @@ HELP
     ;;
   context)
     [[ -z "$1" ]] && { echo "Usage: s2 context <client|all>"; exit 1; }
-    load_env
-    if [[ "$1" == all ]]; then while IFS= read -r c; do python3 "$SCRIPT_DIR/context-full.py" "$c" || true; done < <(clients)
-    else python3 "$SCRIPT_DIR/context-full.py" "$1"; fi
+    need_py; load_env
+    if [[ "$1" == all ]]; then while IFS= read -r c; do "$PY" "$SCRIPT_DIR/context-full.py" "$c" || true; done < <(clients)
+    else "$PY" "$SCRIPT_DIR/context-full.py" "$1"; fi
     ;;
-  enrich) [[ -z "$1" ]] && { echo "Usage: s2 enrich <client>"; exit 1; }; load_env; python3 "$SCRIPT_DIR/enrich-context.py" "$1" ;;
-  context-from-chat) load_env; python3 "$SCRIPT_DIR/context-from-chat.py" "$@" ;;
-  find) load_env; python3 "$SCRIPT_DIR/transcript-find.py" "$@" ;;
-  morning|good-morning) load_env; python3 "$SCRIPT_DIR/morning-briefing.py" "$@" ;;
-  gtm|gtm-summary) python3 "$SCRIPT_DIR/gtm-tag-summary.py" "$@" ;;
-  gtm-workspace|gtm-ws) python3 "$SCRIPT_DIR/gtm-workspace-summary.py" "$@" ;;
-  marketo) python3 "$SCRIPT_DIR/marketo-campaign-summary.py" "$@" ;;
-  playbook|playbooks) python3 "$SCRIPT_DIR/playbook.py" "$@" ;;
-  drive|drive-link) python3 "$SCRIPT_DIR/drive-link.py" "$@" ;;
-  test) cd "$SCRIPT_DIR" && python3 -m unittest discover -s tests -t . ;;
+  enrich) [[ -z "$1" ]] && { echo "Usage: s2 enrich <client>"; exit 1; }; need_py; load_env; "$PY" "$SCRIPT_DIR/enrich-context.py" "$1" ;;
+  context-from-chat) need_py; load_env; "$PY" "$SCRIPT_DIR/context-from-chat.py" "$@" ;;
+  find) need_py; load_env; "$PY" "$SCRIPT_DIR/transcript-find.py" "$@" ;;
+  morning|good-morning) need_py; load_env; "$PY" "$SCRIPT_DIR/morning-briefing.py" "$@" ;;
+  gtm|gtm-summary) need_py; "$PY" "$SCRIPT_DIR/gtm-tag-summary.py" "$@" ;;
+  gtm-workspace|gtm-ws) need_py; "$PY" "$SCRIPT_DIR/gtm-workspace-summary.py" "$@" ;;
+  marketo) need_py; "$PY" "$SCRIPT_DIR/marketo-campaign-summary.py" "$@" ;;
+  playbook|playbooks) need_py; "$PY" "$SCRIPT_DIR/playbook.py" "$@" ;;
+  drive|drive-link) need_py; "$PY" "$SCRIPT_DIR/drive-link.py" "$@" ;;
+  test) need_py; cd "$SCRIPT_DIR" && "$PY" -m unittest discover -s tests -t . ;;
   *)
     if [[ "$SUB" != */* && -x "$SCRIPT_DIR/cmd/$SUB.sh" ]]; then load_env; exec "$SCRIPT_DIR/cmd/$SUB.sh" "$@"; fi
     echo "Unknown command: $SUB (run: s2 help)" >&2

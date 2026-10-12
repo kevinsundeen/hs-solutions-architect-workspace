@@ -5,6 +5,8 @@
 !/README.md
 !/CLAUDE.md
 !/LICENSE
+!/install.sh
+!/ONBOARDING.md
 !/.env.example
 !/.mcp.json.example
 !/s2.code-workspace
