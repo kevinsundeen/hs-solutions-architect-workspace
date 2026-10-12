@@ -4,6 +4,10 @@
 # Safe to re-run: every step is skipped when already done.
 set -euo pipefail
 
+# Braces make bash read the whole script before running any of it. Under `curl | bash`,
+# a step that reads stdin (npm, brew) would otherwise swallow the rest of the script.
+{
+
 CORE_NAME="hs-solutions-architect-workspace"
 CORE_URL="${S2_CORE_URL:-https://github.com/kevinsundeen/hs-solutions-architect-workspace.git}"
 CORE_REF="${S2_CORE_REF:-}"
@@ -206,3 +210,4 @@ Next
   2. Open a Terminal in that folder and run: claude   (log in once when it asks)
   3. Create your first client: bin/s2 new client <Name>
 NEXT
+}
