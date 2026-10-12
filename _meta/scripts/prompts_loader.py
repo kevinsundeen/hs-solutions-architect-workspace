@@ -42,4 +42,3 @@ def get_prompt(key: str) -> str:
     if path.is_file():
         return path.read_text(encoding="utf-8").strip()
     return _DEFAULTS.get(key, "")
-

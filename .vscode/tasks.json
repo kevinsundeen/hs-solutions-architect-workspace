@@ -1,0 +1,10 @@
+{
+  "version": "2.0.0",
+  "inputs": [{ "id": "client", "type": "promptString", "description": "Client folder name" }],
+  "tasks": [
+    { "label": "s2: morning", "type": "shell", "command": "${workspaceFolder}/bin/s2 morning" },
+    { "label": "s2: sync", "type": "shell", "command": "${workspaceFolder}/bin/s2 sync" },
+    { "label": "s2: context <client>", "type": "shell", "command": "${workspaceFolder}/bin/s2 context \"${input:client}\"" },
+    { "label": "s2: test", "type": "shell", "command": "${workspaceFolder}/bin/s2 test" }
+  ]
+}

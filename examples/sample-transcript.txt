@@ -1,0 +1,37 @@
+# Kickoff: Lead status cleanup
+
+**Date:** 2026-01-15
+**Attendees:** Alex Rivera, Jordan Lee (Acme Widgets)
+
+## Summary
+Alex and Jordan agreed to simplify Acme Widgets' lead status values from eleven down to six before any new automation is built. Jordan will export the current values with record counts. Alex will draft a mapping from old to new values for review.
+
+## Key Takeaways
+- Lead status has eleven values, and three are never used.
+- Sales and marketing disagree on the meaning of "Working".
+- A mapping document comes before any workflow changes.
+
+## Next Steps
+- Jordan: export lead status values with counts.
+- Alex: draft the old-to-new status mapping.
+
+## Transcript
+[00:00:05] Alex Rivera: Thanks for joining, Jordan. Today I want to focus on lead status and how it feeds your reporting.
+[00:00:14] Jordan Lee: Sounds good. Right now we have eleven lead status values and nobody agrees on what half of them mean.
+[00:00:26] Alex Rivera: That is common. Which ones does the sales team actually use day to day?
+[00:00:35] Jordan Lee: New, Working, Qualified, and Unqualified. The rest are leftovers from an old process.
+[00:00:47] Alex Rivera: Do any workflows or reports still reference the leftover values?
+[00:00:56] Jordan Lee: I think two reports do. I would have to check the rest.
+[00:01:08] Alex Rivera: I will pull the workflow list so we can see where each value is used before we change anything.
+[00:01:20] Jordan Lee: Marketing also uses Working to mean "we sent an email," while sales uses it to mean "we had a conversation."
+[00:01:33] Alex Rivera: Then we should split that into two values so the definitions are clear.
+[00:01:42] Jordan Lee: That works for me. Can we keep the old values visible until the cleanup is done?
+[00:01:53] Alex Rivera: Yes. We will map old values to new ones first and only hide the old ones at the end.
+[00:02:05] Jordan Lee: How many records would that touch?
+[00:02:11] Alex Rivera: I will have a count once you send the export. Can you get it to me by Friday?
+[00:02:20] Jordan Lee: Yes, I will send it Thursday.
+[00:02:27] Alex Rivera: Great. I will have a draft mapping for you the following Monday.
+[00:02:36] Jordan Lee: Perfect. Anything else you need from our side?
+[00:02:42] Alex Rivera: Just a list of who owns each report that uses lead status.
+[00:02:50] Jordan Lee: I will include that with the export.
+[00:02:56] Alex Rivera: Thanks, Jordan. Talk next week.

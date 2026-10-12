@@ -1,0 +1,7 @@
+{
+  "folders": [
+    { "path": ".", "name": "workspace" },
+    { "path": "../s2-workspace-overlay", "name": "overlay (optional)" }
+  ],
+  "settings": {}
+}

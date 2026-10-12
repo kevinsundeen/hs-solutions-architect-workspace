@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+# s2 — workspace command layer. Usage: s2 <command> [args]. Run `s2 help`.
+set -e
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+load_env() {
+  if [[ -f "$ROOT_DIR/.env" ]]; then set -a; source "$ROOT_DIR/.env" 2>/dev/null || true; set +a; fi
+}
+
+clients() {
+  for d in "$ROOT_DIR"/*/; do
+    c="${d%/}"; c="${c##*/}"
+    [[ "$c" == _* || "$c" == Archive || "$c" == Templates || "$c" == examples || "$c" == bin ]] && continue
+    [[ -f "$ROOT_DIR/$c/context.md" ]] && echo "$c"
+  done
+}
+
+# shellcheck source=pyresolve.sh
+source "$SCRIPT_DIR/pyresolve.sh"
+# Resolve a Python >= 3.11 lazily, so commands that need no Python still run without one.
+need_py() { if [[ -z "${S2_PYTHON:-}" ]]; then S2_PYTHON="$(s2_python)" || exit 1; export S2_PYTHON; fi; PY="$S2_PYTHON"; }
+
+cd "$ROOT_DIR"
+SUB="${1:-help}"; shift 1 2>/dev/null || true
+
+case "$SUB" in
+  help|-h|--help)
+    cat <<'HELP'
+s2 <command>
+  setup [--overlay PATH]        first-run setup (safe to re-run)
+  new client <Name>             create a client folder from the template
+  fetch [args]                  pull Fathom transcripts into _inbox/
+  sync [--enrich]               rename + index transcripts, refresh context.md for every client
+  wrap-up [--commit]            fetch + sync (+ commit and push with --commit)
+  status | health               per-client summary | folder sanity check
+  context <client|all>          full context refresh (AI summary if a key is set)
+  enrich <client>               AI summary only (context-ai.md)
+  context-from-chat <client> <file|->
+  find <client> "query"         search a client's transcripts
+  morning                       morning briefing (_meta/today.md)
+  gtm | gtm-workspace | marketo <export.json>   token-safe summaries
+  playbook <list|run|sync|new>  scheduled jobs (_meta/playbooks/*.toml)
+  drive <register|check|list|mark-synced|open>
+  test                          run the script test suite
+Overlay commands live in _meta/scripts/cmd/<name>.sh and run as `s2 <name>`.
+HELP
+    ;;
+  setup) need_py; "$PY" "$SCRIPT_DIR/setup.py" "$@" ;;
+  new)
+    if [[ "$1" != "client" || -z "$2" ]]; then echo "Usage: s2 new client <Name>"; exit 1; fi
+    name="$2"
+    if [[ "$name" == */* || "$name" == .* ]]; then echo "Invalid client name: no '/' and no leading '.'" >&2; exit 1; fi
+    mkdir -p "$ROOT_DIR/$name"/{transcripts,work,exports} \
+             "$ROOT_DIR/$name"/documents/{MSA,SOW,client-provided,deliverables/draft,deliverables/final}
+    template="$ROOT_DIR/_meta/system/templates/client-context-template.md"
+    if [[ -f "$ROOT_DIR/$name/context.md" ]]; then
+      echo "Kept existing context.md: $name/context.md"
+    else
+      tmp="$(mktemp)"
+      today="$(date +%Y-%m-%d)"
+      if [[ -f "$template" ]]; then
+        esc="$(printf '%s' "$name" | sed -e 's/[\\&|]/\\&/g')"
+        sed "s|\[Client Name\]|$esc|g; s|\[Name\]|$esc|g; s|\[Date\]|$today|g" "$template" > "$tmp"
+      else
+        printf '# %s - Context\n\n*Last Updated: %s*\n' "$name" "$today" > "$tmp"
+      fi
+      mv "$tmp" "$ROOT_DIR/$name/context.md"
+    fi
+    echo "Created client folder: $name"
+    ;;
+  fetch) load_env; need_py; "$SCRIPT_DIR/fathom-fetch.sh" "$@" ;;
+  sync)
+    need_py
+    "$SCRIPT_DIR/process-all-clients.sh"
+    if [[ "$1" == "--enrich" ]]; then load_env; while IFS= read -r c; do "$PY" "$SCRIPT_DIR/enrich-context.py" "$c" || true; done < <(clients); fi
+    ;;
+  wrap-up|wrapup)
+    need_py; load_env
+    do_commit=""; args=()
+    for a in "$@"; do [[ "$a" == "--commit" ]] && do_commit=1 || args+=("$a"); done
+    "$SCRIPT_DIR/fathom-fetch.sh" "${args[@]}"
+    "$SCRIPT_DIR/process-all-clients.sh"
+    if [[ -n "$do_commit" ]]; then
+      git add _inbox '*/context.md' '*/transcripts/' 2>/dev/null || true
+      git commit -m "Wrap up: fetch transcripts, update context" 2>/dev/null || true
+      git push 2>/dev/null || true
+    fi
+    ;;
+  status|brief)
+    while IFS= read -r c; do
+      tc="$(find "$ROOT_DIR/$c/transcripts" -maxdepth 1 -name '*.txt' 2>/dev/null | wc -l | tr -d ' ')"
+      echo "$c — transcripts: $tc"
+    done < <(clients)
+    ;;
+  health|check)
+    while IFS= read -r c; do
+      [[ -d "$ROOT_DIR/$c/transcripts" && -d "$ROOT_DIR/$c/documents" ]] || echo "  $c: missing transcripts/ or documents/"
+    done < <(clients)
+    echo "health check done"
+    ;;
+  context)
+    [[ -z "$1" ]] && { echo "Usage: s2 context <client|all>"; exit 1; }
+    need_py; load_env
+    if [[ "$1" == all ]]; then while IFS= read -r c; do "$PY" "$SCRIPT_DIR/context-full.py" "$c" || true; done < <(clients)
+    else "$PY" "$SCRIPT_DIR/context-full.py" "$1"; fi
+    ;;
+  enrich) [[ -z "$1" ]] && { echo "Usage: s2 enrich <client>"; exit 1; }; need_py; load_env; "$PY" "$SCRIPT_DIR/enrich-context.py" "$1" ;;
+  context-from-chat) need_py; load_env; "$PY" "$SCRIPT_DIR/context-from-chat.py" "$@" ;;
+  find) need_py; load_env; "$PY" "$SCRIPT_DIR/transcript-find.py" "$@" ;;
+  morning|good-morning) need_py; load_env; "$PY" "$SCRIPT_DIR/morning-briefing.py" "$@" ;;
+  gtm|gtm-summary) need_py; "$PY" "$SCRIPT_DIR/gtm-tag-summary.py" "$@" ;;
+  gtm-workspace|gtm-ws) need_py; "$PY" "$SCRIPT_DIR/gtm-workspace-summary.py" "$@" ;;
+  marketo) need_py; "$PY" "$SCRIPT_DIR/marketo-campaign-summary.py" "$@" ;;
+  playbook|playbooks) need_py; "$PY" "$SCRIPT_DIR/playbook.py" "$@" ;;
+  drive|drive-link) need_py; "$PY" "$SCRIPT_DIR/drive-link.py" "$@" ;;
+  test) need_py; cd "$SCRIPT_DIR" && "$PY" -m unittest discover -s tests -t . ;;
+  *)
+    if [[ "$SUB" != */* && -x "$SCRIPT_DIR/cmd/$SUB.sh" ]]; then load_env; exec "$SCRIPT_DIR/cmd/$SUB.sh" "$@"; fi
+    echo "Unknown command: $SUB (run: s2 help)" >&2
+    exit 1
+    ;;
+esac

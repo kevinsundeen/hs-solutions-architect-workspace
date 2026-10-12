@@ -1,0 +1,9 @@
+{
+  "claudeCode.preferredLocation": "panel",
+  "claudeCode.useTerminal": true,
+  "workbench.panel.defaultLocation": "right",
+  "markdown.preview.openMarkdownLinks": "inPreview",
+  "workbench.editorAssociations": { "*.md": "vscode.markdown.preview.editor" },
+  "terminal.integrated.enableBell": true,
+  "files.exclude": { "**/__pycache__": true, "**/.DS_Store": true }
+}

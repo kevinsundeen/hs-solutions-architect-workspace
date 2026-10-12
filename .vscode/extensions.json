@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "anthropic.claude-code",
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "mechatroner.rainbow-csv",
+    "tomoki1207.pdf"
+  ]
+}

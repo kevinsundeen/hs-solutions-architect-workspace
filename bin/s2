@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Delegate to _meta/scripts/s2 (run from repo root: ./bin/s2 morning, or add bin to PATH and run 's2 morning')
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+exec "$ROOT/_meta/scripts/s2" "$@"
