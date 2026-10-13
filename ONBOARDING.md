@@ -9,10 +9,21 @@ Claude Code runs inside the folder, with three project agents that keep HubSpot 
 `grounder` (what the client said), `portal-reader` (what the portal holds) and `hs-docs` (how
 HubSpot works). If you passed `--overlay`, your team's extra agents, skills and commands are linked in.
 
-## First 15 minutes
+## Fastest path: let Claude walk you through it
 
-Run commands from the workspace folder (`hs-solutions-architect-workspace`). VS Code has it open;
-use Terminal > New Terminal.
+1. In VS Code, use the top menu: **Terminal > New Terminal**. The + icon in the side panel opens a
+   chat, not a terminal.
+2. Type `claude` and press Enter. Log in when it asks (one time only).
+3. Type `/onboard` and press Enter. Claude shows you the sample client, asks you about your work,
+   and sets up only the keys you need. It takes about 20 minutes.
+
+`Acme-Example/` in the VS Code sidebar is a sample client with one call in it. `/onboard` starts
+there: Claude turns that call into the client summary (`context.md`) while you watch.
+
+## Manual path: first 15 minutes
+
+Run commands from the workspace folder (`hs-solutions-architect-workspace`). If VS Code did not open
+it, use File > Open Workspace from File and choose `s2.code-workspace`.
 
 1. **Log in to Claude Code.** Run `claude` once and follow the login prompts.
 2. **Fill `.env`.** Re-run `bin/s2 setup` to be prompted for each empty key, or edit `.env` directly.
@@ -51,6 +62,8 @@ also need `pip install requests python-dotenv`.
 |---|---|
 | `Python 3.11+ required` | The macOS built-in Python is 3.9. Run `brew install python@3.12`; `bin/s2` finds it on its own. |
 | Overlay clone says no access | Ask the overlay's owner for a GitHub collaborator invite, accept it, then re-run the same install line. If `gh auth status` fails, run `gh auth login --web --git-protocol https -h github.com`. |
+| The install ended but VS Code did not open | Open VS Code yourself, then File > Open Workspace from File > `s2.code-workspace` in the workspace folder. |
+| You see a chat panel instead of a terminal | Use the top menu: Terminal > New Terminal. |
 | `code: command not found` | Not needed. Open `s2.code-workspace` from VS Code (File > Open Workspace from File). |
 | Setup stopped or you want to change keys | Re-run `bin/s2 setup`. It never overwrites your files or filled values. Re-running the install line is also safe; it pulls updates. |
 | Files go missing or look empty | If the workspace sits in an iCloud-synced Documents folder, macOS may offload files to the cloud. Install into a non-synced folder instead, for example `~/Code`, using `--dir`. |

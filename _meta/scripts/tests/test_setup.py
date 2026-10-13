@@ -170,6 +170,27 @@ class SmokeTests(unittest.TestCase):
             return R()
         self.assertFalse(su.smoke_test(root, run=run))
 
+    def test_example_built_and_kept(self):
+        root = tmp()
+        (root / "examples").mkdir()
+        (root / "examples/sample-transcript.txt").write_text("t")
+        calls = []
+
+        def run(cmd, **kw):
+            calls.append(cmd[1])
+            if "new" in cmd:
+                (root / su.EXAMPLE_NAME / "transcripts").mkdir(parents=True)
+            class R: returncode = 0; stdout = ""; stderr = ""
+            return R()
+        self.assertTrue(su.make_example(root, run=run))
+        self.assertEqual(calls, ["new", "context"])
+        self.assertTrue((root / su.EXAMPLE_NAME / "transcripts" / su.EXAMPLE_FILE).is_file())
+
+    def test_example_skipped_when_present(self):
+        root = tmp()
+        (root / su.EXAMPLE_NAME).mkdir()
+        self.assertFalse(su.make_example(root, run=lambda *a, **k: self.fail("ran")))
+
     def test_refuses_existing_demo(self):
         root = tmp()
         (root / "Demo").mkdir()
