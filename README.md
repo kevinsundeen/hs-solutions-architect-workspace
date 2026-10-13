@@ -15,7 +15,24 @@ actually holds.
    ```
 
    The `--overlay` part is optional: it adds a team's private overlay repo, and the person who invites you sends the full line. Without an overlay, drop everything from `--` onward (keep `| bash`).
-3. When VS Code opens, read `ONBOARDING.md`.
+3. Follow the box at the end of the install. In VS Code, open **Terminal > New Terminal** (not the
+   + icon in the side panel), press Cmd+V, and press Enter. Claude walks you through setup with
+   `/onboard`.
+
+### What the installer does
+
+It lists these steps and asks before it changes anything:
+
+- Installs what is missing: Xcode Command Line Tools, Homebrew, Python 3.12, Node, GitHub CLI,
+  Claude Code. It skips anything you already have.
+- Clones this repo into the folder you choose (default `~/Documents/GitHub`).
+- Runs `bin/s2 setup`. Setup creates `.env` for your keys, writes `.mcp.json`, and builds a sample
+  client, `Acme-Example/`.
+- Opens the workspace in VS Code.
+
+Outside the workspace, it changes one thing: it adds a Homebrew line to `~/.zprofile` if needed.
+Your keys stay in `.env` on your Mac. `.gitignore` keeps them, and every client folder, out of
+git. Nothing is uploaded. You can [read the script](install.sh) before you run it.
 
 ## Manual setup
 
@@ -52,7 +69,7 @@ Run `bin/s2 help` for every command.
 | `_meta/scripts` | Python (stdlib only, except the HubSpot library): transcript indexing, context, setup, playbooks, Drive linkage, tests |
 | `_meta/library/hubspot` | HubSpot API client, schema puller, workflow grabber, reference docs |
 | `.claude/agents` | `grounder`, `portal-reader`, `hs-docs`, `classifier`, `builder`, `adversary`, `shipper` |
-| `.claude/skills` | `hs-build`, `grill`, `grill-deep`, `portal-discovery`, `context-update` |
+| `.claude/skills` | `onboard`, `hs-build`, `grill`, `grill-deep`, `portal-discovery`, `context-update` |
 | `.claude/commands` | `/gtm`, `/gtm-workspace`, `/marketo`, `/schema`, `/workflows` |
 | `.vscode` | Workspace settings, extension list, tasks |
 

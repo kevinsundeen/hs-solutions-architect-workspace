@@ -16,15 +16,17 @@ DEFAULT_DIR="~/Documents/GitHub"
 OVERLAY=""
 DIR=""
 OPEN=1
+YES=0
 
 usage() {
   cat <<HELP
-Usage: install.sh [--overlay OWNER/REPO] [--dir PATH] [--no-open] [--help]
+Usage: install.sh [--overlay OWNER/REPO] [--dir PATH] [--no-open] [--yes] [--help]
 
   --overlay OWNER/REPO  Also clone a private overlay repo (needs a GitHub collaborator invite)
                         and link it into the workspace.
   --dir PATH            Parent folder for the workspace (skips the location prompt).
   --no-open             Do not open VS Code at the end.
+  --yes                 Skip the "Continue?" question.
   --help                Show this help.
 
 Testing only (environment variables):
@@ -45,6 +47,7 @@ while [[ $# -gt 0 ]]; do
     --overlay) need_val "$@"; OVERLAY="$2"; shift 2 ;;
     --dir)     need_val "$@"; DIR="$2"; shift 2 ;;
     --no-open) OPEN=0; shift ;;
+    -y|--yes)  YES=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) die "Unknown option: $1. Run: install.sh --help" ;;
   esac
@@ -71,6 +74,23 @@ if [[ ! -d "/Applications/Visual Studio Code.app" ]]; then
   exit 1
 fi
 ok "VS Code"
+
+# Say what will happen before anything changes.
+cat <<PLAN
+
+This installer will:
+  • install anything missing: Xcode Command Line Tools, Homebrew, Python 3.12, Node, GitHub CLI, Claude Code
+  • download the workspace (a folder of Markdown files and Python scripts) to a folder you choose
+  • create .env for your API keys. Keys stay on this Mac and are never committed or uploaded.
+  • open the workspace in VS Code
+Outside the workspace it changes one thing: it adds a Homebrew line to ~/.zprofile if needed.
+It downloads tools; it uploads none of your files.
+Read the script first: https://github.com/kevinsundeen/hs-solutions-architect-workspace/blob/main/install.sh
+
+PLAN
+if [[ $YES -eq 0 && $TTY_OK -eq 1 ]]; then
+  case "$(ask "Continue? [Y/n] ")" in [nN]*) say "Stopped. Nothing was changed."; exit 0 ;; esac
+fi
 
 # a. Xcode Command Line Tools
 if xcode-select -p >/dev/null 2>&1; then
@@ -199,15 +219,35 @@ else
   bin/s2 setup ${OVERLAY_ARGS[@]+"${OVERLAY_ARGS[@]}"}
 fi
 
-if [[ $OPEN -eq 1 ]]; then
-  open -a "Visual Studio Code" "$CORE/s2.code-workspace" "$CORE/ONBOARDING.md" || true
+OPENED=0
+if [[ $OPEN -eq 1 ]] && open -a "Visual Studio Code" "$CORE/s2.code-workspace" "$CORE/ONBOARDING.md"; then
+  OPENED=1
 fi
 
-cat <<NEXT
+START="cd \"$CORE\" && claude \"/onboard\""
+COPIED=0
+if printf '%s' "$START" | pbcopy 2>/dev/null; then COPIED=1; fi
 
-Next
-  1. Read $CORE/ONBOARDING.md (open in VS Code).
-  2. Open a Terminal in that folder and run: claude   (log in once when it asks)
-  3. Create your first client: bin/s2 new client <Name>
-NEXT
+say ""
+say "════════════════════════════════════════════════════════════"
+say " ✓ Installed. Do this next:"
+say "════════════════════════════════════════════════════════════"
+if [[ $OPENED -eq 1 ]]; then
+  say " 1. Switch to VS Code (it just opened the workspace)."
+else
+  say " 1. Open VS Code > File > Open Workspace from File >"
+  say "    $CORE/s2.code-workspace"
+fi
+say " 2. Top menu: Terminal > New Terminal."
+say "    (Not the + icon in the side panel. That opens a chat, not a terminal.)"
+if [[ $COPIED -eq 1 ]]; then
+  say " 3. Press Cmd+V, then Enter. This command is on your clipboard:"
+else
+  say " 3. Paste this line and press Enter:"
+fi
+say "    $START"
+say ""
+say " Claude asks you to log in once, then walks you through setup in about 20 minutes."
+say " If the walkthrough does not start after login, type /onboard and press Enter."
+say "════════════════════════════════════════════════════════════"
 }

@@ -29,6 +29,7 @@ __pycache__/
 **/.claude/worktrees/
 **/.claude/settings.local.json
 _meta/today.md
+_meta/me.md
 _meta/queue/
 
 # vendor doc whose name matches *secret*

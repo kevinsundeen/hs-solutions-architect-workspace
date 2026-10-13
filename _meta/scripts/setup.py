@@ -144,7 +144,23 @@ def smoke_test(root: Path, run=subprocess.run, keep: bool = False) -> bool:
     return ok
 
 
-USAGE = "Usage: s2 setup [--overlay PATH] [--no-smoke] [--keep-demo]"
+EXAMPLE_NAME = "Acme-Example"
+EXAMPLE_FILE = "2026-01-15_acme-example_alex-jordan_kickoff.txt"
+
+
+def make_example(root: Path, run=subprocess.run) -> bool:
+    """Build a sample client so a new user can see a finished folder. Skipped if it exists."""
+    ex = root / EXAMPLE_NAME
+    if ex.exists():
+        return False
+    s2 = str(root / "bin" / "s2")
+    run([s2, "new", "client", EXAMPLE_NAME], cwd=root, capture_output=True, text=True)
+    shutil.copyfile(root / "examples/sample-transcript.txt", ex / "transcripts" / EXAMPLE_FILE)
+    run([s2, "context", EXAMPLE_NAME], cwd=root, capture_output=True, text=True)
+    return True
+
+
+USAGE = "Usage: s2 setup [--overlay PATH] [--no-smoke] [--keep-demo] [--no-example]"
 
 
 def overlay_arg(argv: list[str]) -> Path | None:
@@ -184,6 +200,12 @@ def main(argv: list[str]) -> int:
         return 0
     ok = smoke_test(ROOT, keep="--keep-demo" in argv)
     print("✓ smoke test PASS" if ok else "✖ smoke test FAIL — run: s2 new client Demo && s2 context Demo")
+    if ok and "--no-example" not in argv:
+        try:
+            if make_example(ROOT):
+                print(f"✓ sample client {EXAMPLE_NAME}/ created (delete it when you no longer need it)")
+        except OSError as e:
+            print(f"  ! sample client skipped: {e}")
     return 0 if ok else 1
 
 
